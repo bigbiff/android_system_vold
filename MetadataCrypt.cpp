@@ -130,7 +130,7 @@ static bool read_key(const std::string& metadata_key_dir, const KeyGeneration& g
         }
     }
     auto temp = metadata_key_dir + "/tmp";
-    return retrieveOrGenerateKey(dir, temp, kEmptyAuthentication, gen, key);
+    return retrieveOrGenerateKey(dir, temp, kEmptyAuthentication, gen, key, false);
 }
 
 static bool get_number_of_sectors(const std::string& real_blkdev, uint64_t* nr_sec) {

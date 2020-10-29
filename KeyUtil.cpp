@@ -394,12 +394,12 @@ bool evictKey(const std::string& mountpoint, const EncryptionPolicy& policy) {
 
 bool retrieveOrGenerateKey(const std::string& key_path, const std::string& tmp_path,
                            const KeyAuthentication& key_authentication, const KeyGeneration& gen,
-                           KeyBuffer* key) {
+                           KeyBuffer* key, bool keepOld) {
     LOG(INFO) << "fscrypt::retrieveOrGenerateKey";
     if (pathExists(key_path)) {
         LOG(INFO) << "Key exists, using: " << key_path;
         LOG(INFO) << "fscrypt::retrieveOrGenerateKey::retrieveKey";
-        if (!retrieveKey(key_path, key_authentication, key)) return false;
+        if (!retrieveKey(key_path, key_authentication, key, false)) return false;
     } else {
         if (!gen.allow_gen) {
             LOG(ERROR) << "No key found in " << key_path;

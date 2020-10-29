@@ -204,7 +204,7 @@ static bool read_and_fixate_user_ce_key(userid_t user_id,
     for (auto const ce_key_path : paths) {
         LOG(DEBUG) << "Trying user CE key " << ce_key_path;
         LOG(INFO) <<"fscrypt::read_and_fixate_user_ce_key::retrieveKey";
-        if (retrieveKey(ce_key_path, auth, ce_key)) {
+        if (retrieveKey(ce_key_path, auth, ce_key, false)) {
             LOG(DEBUG) << "Successfully retrieved key";
             fixate_user_ce_key(directory_path, ce_key_path, paths);
             return true;
@@ -412,7 +412,7 @@ static bool load_all_de_keys() {
         auto key_path = de_dir + "/" + entry->d_name;
         KeyBuffer de_key;
         LOG(INFO) <<"fscrypt::load_all_de_keys::retrieveKey";
-        if (!retrieveKey(key_path, kEmptyAuthentication, &de_key)) return false;
+        if (!retrieveKey(key_path, kEmptyAuthentication, &de_key, false)) return false;
         EncryptionPolicy de_policy;
         if (!install_storage_key(DATA_MNT_POINT, options, de_key, &de_policy)) return false;
         auto ret = s_de_policies.insert({user_id, de_policy});
@@ -446,7 +446,7 @@ bool fscrypt_initialize_systemwide_keys() {
 
     KeyBuffer device_key;
     if (!retrieveOrGenerateKey(device_key_path, device_key_temp, kEmptyAuthentication,
-                               makeGen(options), &device_key))
+                               makeGen(options), &device_key, false))
         return false;
 
     EncryptionPolicy device_policy;
@@ -672,7 +672,7 @@ static bool read_or_create_volkey(const std::string& misc_path, const std::strin
     EncryptionOptions options;
     if (!get_volume_file_encryption_options(&options)) return false;
     KeyBuffer key;
-    if (!retrieveOrGenerateKey(key_path, key_path + "_tmp", auth, makeGen(options), &key))
+    if (!retrieveOrGenerateKey(key_path, key_path + "_tmp", auth, makeGen(options), &key, false))
         return false;
     if (!install_storage_key(BuildDataPath(volume_uuid), options, key, policy)) return false;
     return true;
@@ -692,14 +692,13 @@ static bool fscrypt_rewrap_user_key(userid_t user_id, int serial,
     KeyBuffer ce_key;
     std::string ce_key_current_path = get_ce_key_current_path(directory_path);
     LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key::retrieveKey";
-    if (retrieveKey(ce_key_current_path, retrieve_auth, &ce_key)) {
-        LOG(DEBUG) << "Successfully retrieved key";
+    if (retrieveKey(ce_key_current_path, retrieve_auth, &ce_key, false)) {
+        LOG(INFO) << "Successfully retrieved key";
         // TODO(147732812): Remove this once Locksettingservice is fixed.
         // Currently it calls fscrypt_clear_user_key_auth with a secret when lockscreen is
         // changed from swipe to none or vice-versa
-    } else if (retrieveKey(ce_key_current_path, kEmptyAuthentication, &ce_key)) {
-        LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key2::retrieveKey";
-        LOG(DEBUG) << "Successfully retrieved key with empty auth";
+    } else if (retrieveKey(ce_key_current_path, kEmptyAuthentication, &ce_key, false)) {
+        LOG(INFO) << "Successfully retrieved key with empty auth";
     } else {
         LOG(ERROR) << "Failed to retrieve key for user " << user_id;
         return false;
