@@ -329,7 +329,8 @@ static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
 static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::string& dir,
                                            const km::AuthorizationSet& keyParams,
                                            const km::AuthorizationSet& opParams,
-                                           km::AuthorizationSet* outParams) {
+                                           km::AuthorizationSet* outParams,
+                                           bool keepOld) {
     km::AuthorizationSet inParams(keyParams);
     inParams.append(opParams.begin(), opParams.end());
 
@@ -369,8 +370,10 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
                   << "; delaying commit due to checkpoint";
         ScheduleKeyCommit(dir);
     } else {
-        if (!CommitUpgradedKey(keymaster, dir)) return KeymasterOperation();
-        LOG(INFO) << "Key upgraded: " << blob_file;
+        if (keepOld) {
+            if (!CommitUpgradedKey(keymaster, dir)) return KeymasterOperation();
+            LOG(INFO) << "Key upgraded: " << blob_file;
+        }
     }
     return opHandle;
 }
@@ -383,7 +386,7 @@ static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
                     .Authorization(km::TAG_ROLLBACK_RESISTANCE)
                     .Authorization(km::TAG_PURPOSE, km::KeyPurpose::ENCRYPT);
     km::AuthorizationSet outParams;
-    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, &outParams);
+    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, &outParams, false);
     if (!opHandle) return false;
     auto nonceBlob = outParams.GetTagValue(km::TAG_NONCE);
     if (!nonceBlob) {
@@ -405,14 +408,14 @@ static bool encryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir
 
 static bool decryptWithKeymasterKey(Keymaster& keymaster, const std::string& dir,
                                     const km::AuthorizationSet& keyParams,
-                                    const std::string& ciphertext, KeyBuffer* message) {
+                                    const std::string& ciphertext, KeyBuffer* message, bool keepOld) {
     const std::string nonce = ciphertext.substr(0, GCM_NONCE_BYTES);
     auto bodyAndMac = ciphertext.substr(GCM_NONCE_BYTES);
     auto opParams = km::AuthorizationSetBuilder()
                             .Authorization(km::TAG_NONCE, nonce)
                             .Authorization(km::TAG_ROLLBACK_RESISTANCE)
                             .Authorization(km::TAG_PURPOSE, km::KeyPurpose::DECRYPT);
-    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, nullptr);
+    auto opHandle = BeginKeymasterOp(keymaster, dir, keyParams, opParams, nullptr, keepOld);
     if (!opHandle) return false;
     if (!opHandle.updateCompletely(bodyAndMac, message)) return false;
     if (!opHandle.finish(nullptr)) return false;
@@ -622,7 +625,7 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
     return true;
 }
 
-bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key) {
+bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key, bool keepOld) {
     LOG(INFO) << "retrieveKey";
     std::string version;
     if (!readFileToString(dir + "/" + kFn_version, &version)) return false;
@@ -643,7 +646,7 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffe
         Keymaster keymaster;
         if (!keymaster) return false;
         km::AuthorizationSet keyParams = beginParams(appId);
-        if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key))
+        if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key, false))
             return false;
     } else {
         LOG(INFO) << "fscrypt::retrieveKey::decryptWithoutKeymster";
