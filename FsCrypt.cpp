@@ -411,7 +411,7 @@ static bool load_all_de_keys() {
         userid_t user_id = std::stoi(entry->d_name);
         auto key_path = de_dir + "/" + entry->d_name;
         KeyBuffer de_key;
-        LOG(INFO) <<"fscrypt::load_all_de_keys::retrieveKey";
+        LOG(INFO) << "fscrypt::load_all_de_keys::retrieveKey";
         if (!retrieveKey(key_path, kEmptyAuthentication, &de_key)) return false;
         EncryptionPolicy de_policy;
         if (!install_storage_key(DATA_MNT_POINT, options, de_key, &de_policy)) return false;
@@ -696,13 +696,12 @@ static bool fscrypt_rewrap_user_key(userid_t user_id, int serial,
     std::string ce_key_current_path = get_ce_key_current_path(directory_path);
     LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key::retrieveKey";
     if (retrieveKey(ce_key_current_path, retrieve_auth, &ce_key)) {
-        LOG(DEBUG) << "Successfully retrieved key";
+        LOG(INFO) << "Successfully retrieved key";
         // TODO(147732812): Remove this once Locksettingservice is fixed.
         // Currently it calls fscrypt_clear_user_key_auth with a secret when lockscreen is
         // changed from swipe to none or vice-versa
     } else if (retrieveKey(ce_key_current_path, kEmptyAuthentication, &ce_key)) {
-        LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key2::retrieveKey";
-        LOG(DEBUG) << "Successfully retrieved key with empty auth";
+        LOG(INFO) << "Successfully retrieved key with empty auth";
     } else {
         LOG(ERROR) << "Failed to retrieve key for user " << user_id;
         return false;

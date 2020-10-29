@@ -40,7 +40,6 @@
 static int encryption_mode = FS_ENCRYPTION_MODE_PRIVATE;
 
 bool fscrypt_is_native() {
-    LOG(ERROR) << "fscrypt_is_native::ro.crypto.type";
     char value[PROPERTY_VALUE_MAX];
     property_get("ro.crypto.type", value, "none");
     return !strcmp(value, "file");

@@ -220,59 +220,59 @@ static std::vector<std::string> key_dirs_to_commit;
 
 // Replaces |dir|/keymaster_key_blob with |dir|/keymaster_key_blob_upgraded and
 // deletes the old key from Keymaster.
-static bool CommitUpgradedKey(Keymaster& keymaster, const std::string& dir) {
-    auto blob_file = dir + "/" + kFn_keymaster_key_blob;
-    auto upgraded_blob_file = dir + "/" + kFn_keymaster_key_blob_upgraded;
+// static bool CommitUpgradedKey(Keymaster& keymaster, const std::string& dir) {
+//     auto blob_file = dir + "/" + kFn_keymaster_key_blob;
+//     auto upgraded_blob_file = dir + "/" + kFn_keymaster_key_blob_upgraded;
 
-    std::string blob;
-    if (!readFileToString(blob_file, &blob)) return false;
+//     std::string blob;
+//     if (!readFileToString(blob_file, &blob)) return false;
 
-    if (rename(upgraded_blob_file.c_str(), blob_file.c_str()) != 0) {
-        PLOG(ERROR) << "Failed to rename " << upgraded_blob_file << " to " << blob_file;
-        return false;
-    }
-    // Ensure that the rename is persisted before deleting the Keymaster key.
-    if (!FsyncDirectory(dir)) return false;
+//     if (rename(upgraded_blob_file.c_str(), blob_file.c_str()) != 0) {
+//         PLOG(ERROR) << "Failed to rename " << upgraded_blob_file << " to " << blob_file;
+//         return false;
+//     }
+//     // Ensure that the rename is persisted before deleting the Keymaster key.
+//     if (!FsyncDirectory(dir)) return false;
 
-    if (!keymaster || !keymaster.deleteKey(blob)) {
-        LOG(WARNING) << "Failed to delete old key " << blob_file
-                     << " from Keymaster; continuing anyway";
-        // Continue on, but the space in Keymaster used by the old key won't be freed.
-    }
-    return true;
-}
+//     if (!keymaster || !keymaster.deleteKey(blob)) {
+//         LOG(WARNING) << "Failed to delete old key " << blob_file
+//                      << " from Keymaster; continuing anyway";
+//         // Continue on, but the space in Keymaster used by the old key won't be freed.
+//     }
+//     return true;
+// }
 
-static void DeferredCommitKeys() {
-    android::base::WaitForProperty("vold.checkpoint_committed", "1");
-    LOG(INFO) << "Committing upgraded keys";
-    Keymaster keymaster;
-    if (!keymaster) {
-        LOG(ERROR) << "Failed to open Keymaster; old keys won't be deleted from Keymaster";
+// static void DeferredCommitKeys() {
+//     android::base::WaitForProperty("vold.checkpoint_committed", "1");
+//     LOG(INFO) << "Committing upgraded keys";
+//     Keymaster keymaster;
+//     if (!keymaster) {
+//         LOG(ERROR) << "Failed to open Keymaster; old keys won't be deleted from Keymaster";
         // Continue on, but the space in Keymaster used by the old keys won't be freed.
-    }
-    std::lock_guard<std::mutex> lock(key_upgrade_lock);
-    for (auto& dir : key_dirs_to_commit) {
-        LOG(INFO) << "Committing upgraded key " << dir;
-        CommitUpgradedKey(keymaster, dir);
-    }
-    key_dirs_to_commit.clear();
-}
+//     }
+//     std::lock_guard<std::mutex> lock(key_upgrade_lock);
+//     for (auto& dir : key_dirs_to_commit) {
+//         LOG(INFO) << "Committing upgraded key " << dir;
+//         CommitUpgradedKey(keymaster, dir);
+//     }
+//     key_dirs_to_commit.clear();
+// }
 
 // Returns true if the Keymaster key in |dir| has already been upgraded and is
 // pending being committed.  Assumes that key_upgrade_lock is held.
-static bool IsKeyCommitPending(const std::string& dir) {
-    for (const auto& dir_to_commit : key_dirs_to_commit) {
-        if (IsSameFile(dir, dir_to_commit)) return true;
-    }
-    return false;
-}
+// static bool IsKeyCommitPending(const std::string& dir) {
+//     for (const auto& dir_to_commit : key_dirs_to_commit) {
+//         if (IsSameFile(dir, dir_to_commit)) return true;
+//     }
+//     return false;
+// }
 
 // Schedules the upgraded Keymaster key in |dir| to be committed later.
 // Assumes that key_upgrade_lock is held.
-static void ScheduleKeyCommit(const std::string& dir) {
-    if (key_dirs_to_commit.empty()) std::thread(DeferredCommitKeys).detach();
-    key_dirs_to_commit.push_back(dir);
-}
+// static void ScheduleKeyCommit(const std::string& dir) {
+//     if (key_dirs_to_commit.empty()) std::thread(DeferredCommitKeys).detach();
+//     key_dirs_to_commit.push_back(dir);
+// }
 
 static void CancelPendingKeyCommit(const std::string& dir) {
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
@@ -307,23 +307,23 @@ static bool RenameKeyDir(const std::string& old_name, const std::string& new_nam
 // Deletes a leftover upgraded key, if present.  An upgraded key can be left
 // over if an update failed, or if we rebooted before committing the key in a
 // freak accident.  Either way, we can re-upgrade the key if we need to.
-static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
-    if (pathExists(path)) {
-        LOG(INFO) << "Deleting leftover upgraded key " << path;
-        std::string blob;
-        if (!android::base::ReadFileToString(path, &blob)) {
-            LOG(WARNING) << "Failed to read leftover upgraded key " << path
-                         << "; continuing anyway";
-        } else if (!keymaster.deleteKey(blob)) {
-            LOG(WARNING) << "Failed to delete leftover upgraded key " << path
-                         << " from Keymaster; continuing anyway";
-        }
-        if (unlink(path.c_str()) != 0) {
-            LOG(WARNING) << "Failed to unlink leftover upgraded key " << path
-                         << "; continuing anyway";
-        }
-    }
-}
+// static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
+//     if (pathExists(path)) {
+//         LOG(INFO) << "Deleting leftover upgraded key " << path;
+//         std::string blob;
+//         if (!android::base::ReadFileToString(path, &blob)) {
+//             LOG(WARNING) << "Failed to read leftover upgraded key " << path
+//                          << "; continuing anyway";
+//         } else if (!keymaster.deleteKey(blob)) {
+//             LOG(WARNING) << "Failed to delete leftover upgraded key " << path
+//                          << " from Keymaster; continuing anyway";
+//         }
+//         if (unlink(path.c_str()) != 0) {
+//             LOG(WARNING) << "Failed to unlink leftover upgraded key " << path
+//                          << "; continuing anyway";
+//         }
+//     }
+// }
 
 // Begins a Keymaster operation using the key stored in |dir|.
 static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::string& dir,
@@ -334,44 +334,51 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
     inParams.append(opParams.begin(), opParams.end());
 
     auto blob_file = dir + "/" + kFn_keymaster_key_blob;
-    auto upgraded_blob_file = dir + "/" + kFn_keymaster_key_blob_upgraded;
+    std::string blob_dir(kFn_keymaster_key_blob);
+    std::string temp_dir = "/tmp/" + blob_dir + "/";
+    if (TEMP_FAILURE_RETRY(mkdir(temp_dir.c_str(), 0700)) == -1) {
+        PLOG(ERROR) << "key mkdir " << temp_dir;
+    }
 
+    auto upgraded_blob_file = temp_dir + kFn_keymaster_key_blob;
+    // auto upgraded_blob_file = dir + "/" + kFn_keymaster_key_blob_upgraded;
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
 
     std::string blob;
-    bool already_upgraded = IsKeyCommitPending(dir);
-    if (already_upgraded) {
-        LOG(INFO)
-                << blob_file
-                << " was already upgraded and is waiting to be committed; using the upgraded blob";
-        if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
-    } else {
-        DeleteUpgradedKey(keymaster, upgraded_blob_file);
+    // bool already_upgraded = IsKeyCommitPending(dir);
+    // if (already_upgraded) {
+    //     LOG(INFO)
+    //             << blob_file
+    //             << " was already upgraded and is waiting to be committed; using the upgraded blob";
+    //     if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
+    // } else {
+        // DeleteUpgradedKey(keymaster, upgraded_blob_file);
         if (!readFileToString(blob_file, &blob)) return KeymasterOperation();
-    }
+    // }
 
     auto opHandle = keymaster.begin(blob, inParams, outParams);
     if (!opHandle) return opHandle;
 
     // If key blob wasn't upgraded, nothing left to do.
-    if (!opHandle.getUpgradedBlob()) return opHandle;
+    // if (!opHandle.getUpgradedBlob()) return opHandle;
 
-    if (already_upgraded) {
-        LOG(ERROR) << "Unexpected case; already-upgraded key " << upgraded_blob_file
-                   << " still requires upgrade";
-        return KeymasterOperation();
-    }
+    // if (already_upgraded) {
+    //     LOG(ERROR) << "Unexpected case; already-upgraded key " << upgraded_blob_file
+    //                << " still requires upgrade";
+    //     return KeymasterOperation();
+    // }
     LOG(INFO) << "Upgrading key: " << blob_file;
+    
     if (!writeStringToFile(*opHandle.getUpgradedBlob(), upgraded_blob_file))
         return KeymasterOperation();
-    if (cp_needsCheckpoint()) {
-        LOG(INFO) << "Wrote upgraded key to " << upgraded_blob_file
-                  << "; delaying commit due to checkpoint";
-        ScheduleKeyCommit(dir);
-    } else {
-        if (!CommitUpgradedKey(keymaster, dir)) return KeymasterOperation();
-        LOG(INFO) << "Key upgraded: " << blob_file;
-    }
+    // if (cp_needsCheckpoint()) {
+    //     LOG(INFO) << "Wrote upgraded key to " << upgraded_blob_file
+    //               << "; delaying commit due to checkpoint";
+    //     ScheduleKeyCommit(dir);
+    // } else {
+    //     if (!CommitUpgradedKey(keymaster, dir)) return KeymasterOperation();
+    //     LOG(INFO) << "Key upgraded: " << blob_file;
+    // }
     return opHandle;
 }
 
@@ -623,7 +630,7 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
 }
 
 bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key) {
-    LOG(INFO) << "retrieveKey";
+    LOG(INFO) << "Retrieving key from keymaster";
     std::string version;
     if (!readFileToString(dir + "/" + kFn_version, &version)) return false;
     if (version != kCurrentVersion) {
@@ -639,14 +646,12 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffe
     std::string encryptedMessage;
     if (!readFileToString(dir + "/" + kFn_encrypted_key, &encryptedMessage)) return false;
     if (auth.usesKeymaster()) {
-        LOG(INFO) << "fscrypt::retrieveKey::usesKeymaster";
         Keymaster keymaster;
         if (!keymaster) return false;
         km::AuthorizationSet keyParams = beginParams(appId);
         if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key))
             return false;
     } else {
-        LOG(INFO) << "fscrypt::retrieveKey::decryptWithoutKeymster";
         if (!decryptWithoutKeymaster(appId, encryptedMessage, key)) return false;
     }
     return true;
