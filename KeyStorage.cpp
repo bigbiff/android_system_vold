@@ -146,7 +146,7 @@ static bool generateKeyStorageKey(Keymaster& keymaster, const std::string& appId
                                 .GcmModeMinMacLen(GCM_MAC_BYTES * 8)
                                 .Authorization(km::TAG_APPLICATION_ID, appId)
                                 .Authorization(km::TAG_NO_AUTH_REQUIRED);
-    LOG(DEBUG) << "Generating \"key storage\" key";
+    LOG(INFO) << "Generating \"key storage\" key";
     return generateKeymasterKey(keymaster, paramBuilder, key);
 }
 
@@ -278,7 +278,7 @@ static void CancelPendingKeyCommit(const std::string& dir) {
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
     for (auto it = key_dirs_to_commit.begin(); it != key_dirs_to_commit.end(); it++) {
         if (IsSameFile(*it, dir)) {
-            LOG(DEBUG) << "Cancelling pending commit of upgraded key " << dir
+            LOG(INFO) << "Cancelling pending commit of upgraded key " << dir
                        << " because it is being destroyed";
             key_dirs_to_commit.erase(it);
             break;
@@ -309,7 +309,7 @@ static bool RenameKeyDir(const std::string& old_name, const std::string& new_nam
 // freak accident.  Either way, we can re-upgrade the key if we need to.
 static void DeleteUpgradedKey(Keymaster& keymaster, const std::string& path) {
     if (pathExists(path)) {
-        LOG(DEBUG) << "Deleting leftover upgraded key " << path;
+        LOG(INFO) << "Deleting leftover upgraded key " << path;
         std::string blob;
         if (!android::base::ReadFileToString(path, &blob)) {
             LOG(WARNING) << "Failed to read leftover upgraded key " << path
@@ -341,7 +341,7 @@ static KeymasterOperation BeginKeymasterOp(Keymaster& keymaster, const std::stri
     std::string blob;
     bool already_upgraded = IsKeyCommitPending(dir);
     if (already_upgraded) {
-        LOG(DEBUG)
+        LOG(INFO)
                 << blob_file
                 << " was already upgraded and is waiting to be committed; using the upgraded blob";
         if (!readFileToString(upgraded_blob_file, &blob)) return KeymasterOperation();
@@ -608,7 +608,7 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
         return false;
     }
     if (pathExists(tmp_path)) {
-        LOG(DEBUG) << "Already exists, destroying: " << tmp_path;
+        LOG(INFO) << "Already exists, destroying: " << tmp_path;
         destroyKey(tmp_path);  // May be partially created so ignore errors
     }
     if (!storeKey(tmp_path, auth, key)) return false;
@@ -618,11 +618,12 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
         return false;
     }
     if (!FsyncParentDirectory(key_path)) return false;
-    LOG(DEBUG) << "Created key: " << key_path;
+    LOG(INFO) << "Created key: " << key_path;
     return true;
 }
 
 bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffer* key) {
+    LOG(INFO) << "retrieveKey";
     std::string version;
     if (!readFileToString(dir + "/" + kFn_version, &version)) return false;
     if (version != kCurrentVersion) {
@@ -638,12 +639,14 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffe
     std::string encryptedMessage;
     if (!readFileToString(dir + "/" + kFn_encrypted_key, &encryptedMessage)) return false;
     if (auth.usesKeymaster()) {
+        LOG(INFO) << "fscrypt::retrieveKey::usesKeymaster";
         Keymaster keymaster;
         if (!keymaster) return false;
         km::AuthorizationSet keyParams = beginParams(appId);
         if (!decryptWithKeymasterKey(keymaster, dir, keyParams, encryptedMessage, key))
             return false;
     } else {
+        LOG(INFO) << "fscrypt::retrieveKey::decryptWithoutKeymster";
         if (!decryptWithoutKeymaster(appId, encryptedMessage, key)) return false;
     }
     return true;
@@ -654,7 +657,7 @@ static bool DeleteKeymasterKey(const std::string& blob_file) {
     if (!readFileToString(blob_file, &blob)) return false;
     Keymaster keymaster;
     if (!keymaster) return false;
-    LOG(DEBUG) << "Deleting key " << blob_file << " from Keymaster";
+    LOG(INFO) << "Deleting key " << blob_file << " from Keymaster";
     if (!keymaster.deleteKey(blob)) return false;
     return true;
 }
