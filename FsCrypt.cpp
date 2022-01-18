@@ -60,6 +60,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
+#include "fscrypt-common.h"
 
 using android::base::Basename;
 using android::base::Realpath;
@@ -97,11 +98,12 @@ const std::string systemwide_volume_key_dir =
 // Some users are ephemeral, don't try to wipe their keys from disk
 std::set<userid_t> s_ephemeral_users;
 
+}  // namespace
+
 // Map user ids to encryption policies
 std::map<userid_t, EncryptionPolicy> s_de_policies;
 std::map<userid_t, EncryptionPolicy> s_ce_policies;
-
-}  // namespace
+std::string de_key_raw_ref;
 
 // Returns KeyGeneration suitable for key as described in EncryptionOptions
 static KeyGeneration makeGen(const EncryptionOptions& options) {
@@ -201,6 +203,7 @@ static bool read_and_fixate_user_ce_key(userid_t user_id,
     auto const paths = get_ce_key_paths(directory_path);
     for (auto const ce_key_path : paths) {
         LOG(DEBUG) << "Trying user CE key " << ce_key_path;
+        LOG(INFO) <<"fscrypt::read_and_fixate_user_ce_key::retrieveKey";
         if (retrieveKey(ce_key_path, auth, ce_key)) {
             LOG(DEBUG) << "Successfully retrieved key";
             fixate_user_ce_key(directory_path, ce_key_path, paths);
@@ -233,6 +236,12 @@ static bool IsEmmcStorage(const std::string& blk_device) {
 
 // Retrieve the options to use for encryption policies on the /data filesystem.
 static bool get_data_file_encryption_options(EncryptionOptions* options) {
+    if (fstab_default.empty()) {
+        if (!ReadDefaultFstab(&fstab_default)) {
+            PLOG(ERROR) << "Failed to open default fstab";
+            return false;
+        }
+    }
     auto entry = GetEntryForMountPoint(&fstab_default, DATA_MNT_POINT);
     if (entry == nullptr) {
         LOG(ERROR) << "No mount point entry for " << DATA_MNT_POINT;
@@ -402,6 +411,7 @@ static bool load_all_de_keys() {
         userid_t user_id = std::stoi(entry->d_name);
         auto key_path = de_dir + "/" + entry->d_name;
         KeyBuffer de_key;
+        LOG(INFO) <<"fscrypt::load_all_de_keys::retrieveKey";
         if (!retrieveKey(key_path, kEmptyAuthentication, &de_key)) return false;
         EncryptionPolicy de_policy;
         if (!install_storage_key(DATA_MNT_POINT, options, de_key, &de_policy)) return false;
@@ -681,12 +691,14 @@ static bool fscrypt_rewrap_user_key(userid_t user_id, int serial,
     auto const directory_path = get_ce_key_directory_path(user_id);
     KeyBuffer ce_key;
     std::string ce_key_current_path = get_ce_key_current_path(directory_path);
+    LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key::retrieveKey";
     if (retrieveKey(ce_key_current_path, retrieve_auth, &ce_key)) {
         LOG(DEBUG) << "Successfully retrieved key";
         // TODO(147732812): Remove this once Locksettingservice is fixed.
         // Currently it calls fscrypt_clear_user_key_auth with a secret when lockscreen is
         // changed from swipe to none or vice-versa
     } else if (retrieveKey(ce_key_current_path, kEmptyAuthentication, &ce_key)) {
+        LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key2::retrieveKey";
         LOG(DEBUG) << "Successfully retrieved key with empty auth";
     } else {
         LOG(ERROR) << "Failed to retrieve key for user " << user_id;
@@ -991,4 +1003,15 @@ bool fscrypt_destroy_volume_keys(const std::string& volume_uuid) {
     res &= destroy_volume_keys("/data/misc_ce", volume_uuid);
     res &= destroy_volume_keys("/data/misc_de", volume_uuid);
     return res;
+}
+
+bool lookup_key_ref(const std::map<userid_t, android::fscrypt::EncryptionPolicy>& key_map, userid_t user_id,
+                           std::string* raw_ref) {
+    auto refi = key_map.find(user_id);
+    if (refi == key_map.end()) {
+        LOG(ERROR) << "Cannot find key for " << user_id;
+        return false;
+    }
+    *raw_ref = refi->second.key_raw_ref;
+    return true;
 }
