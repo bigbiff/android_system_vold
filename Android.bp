@@ -183,6 +183,7 @@ cc_library_static {
         "liblog",
         "libchrome",
         "libkeymaster4_1support",
+        "libkeystoreinfo",
         "libkeystore-attestation-application-id",
         "libkeymint_support",
     ],
@@ -310,4 +311,28 @@ filegroup {
         "binder/android/os/IVoldTaskListener.aidl",
     ],
     path: "binder",
+}
+
+cc_library {
+    name: "libkeystoreinfo",
+    host_supported: true,
+    cflags: [
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable"
+    ],
+    include_dirs: [
+        "external/sqlite/dist/",
+        "system/vold"
+    ],
+    recovery_available: true,
+    srcs: [
+        "KeystoreInfo.cpp"
+    ],
+    shared_libs: [
+        "libsqlite"
+    ],
+    system_shared_libs: [
+        "libc", 
+        "libdl",
+        ],
 }
