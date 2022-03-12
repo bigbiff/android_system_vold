@@ -121,22 +121,22 @@ Status cp_supportsFileCheckpoint(bool& result) {
 }
 
 Status cp_startCheckpoint(int retry) {
-    bool result;
-    if (!cp_supportsCheckpoint(result).isOk() || !result)
-        return error(ENOTSUP, "Checkpoints not supported");
+    // bool result;
+    // if (!cp_supportsCheckpoint(result).isOk() || !result)
+    //     return error(ENOTSUP, "Checkpoints not supported");
 
-    if (retry < -1) return error(EINVAL, "Retry count must be more than -1");
-    std::string content = std::to_string(retry + 1);
-    if (retry == -1) {
-        sp<IBootControl> module = IBootControl::getService();
-        if (module) {
-            std::string suffix;
-            auto cb = [&suffix](hidl_string s) { suffix = s; };
-            if (module->getSuffix(module->getCurrentSlot(), cb).isOk()) content += " " + suffix;
-        }
-    }
-    if (!android::base::WriteStringToFile(content, kMetadataCPFile))
-        return error("Failed to write checkpoint file");
+    // if (retry < -1) return error(EINVAL, "Retry count must be more than -1");
+    // std::string content = std::to_string(retry + 1);
+    // if (retry == -1) {
+    //     sp<IBootControl> module = IBootControl::getService();
+    //     if (module) {
+    //         std::string suffix;
+    //         auto cb = [&suffix](hidl_string s) { suffix = s; };
+    //         if (module->getSuffix(module->getCurrentSlot(), cb).isOk()) content += " " + suffix;
+    //     }
+    // }
+    // if (!android::base::WriteStringToFile(content, kMetadataCPFile))
+    //     return error("Failed to write checkpoint file");
     return Status::ok();
 }
 
@@ -162,18 +162,18 @@ Status cp_commitChanges() {
             << "NOT COMMITTING CHECKPOINT BECAUSE persist.vold.dont_commit_checkpoint IS 1";
         return Status::ok();
     }
-    sp<IBootControl> module = IBootControl::getService();
-    if (module) {
-        CommandResult cr;
-        module->markBootSuccessful([&cr](CommandResult result) { cr = result; });
-        if (!cr.success)
-            return error(EINVAL, "Error marking booted successfully: " + std::string(cr.errMsg));
-        LOG(INFO) << "Marked slot as booted successfully.";
-        // Clears the warm reset flag for next reboot.
-        if (!SetProperty("ota.warm_reset", "0")) {
-            LOG(WARNING) << "Failed to reset the warm reset flag";
-        }
-    }
+    // sp<IBootControl> module = IBootControl::getService();
+    // if (module) {
+    //     CommandResult cr;
+    //     module->markBootSuccessful([&cr](CommandResult result) { cr = result; });
+    //     if (!cr.success)
+    //         return error(EINVAL, "Error marking booted successfully: " + std::string(cr.errMsg));
+    //     LOG(INFO) << "Marked slot as booted successfully.";
+    //     // Clears the warm reset flag for next reboot.
+    //     if (!SetProperty("ota.warm_reset", "0")) {
+    //         LOG(WARNING) << "Failed to reset the warm reset flag";
+    //     }
+    // }
     // Must take action for list of mounted checkpointed things here
     // To do this, we walk the list of mounted file systems.
     // But we also need to get the matching fstab entries to see
