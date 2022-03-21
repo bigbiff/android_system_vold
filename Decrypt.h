@@ -30,8 +30,11 @@ static constexpr int FLAG_STORAGE_CE = 1 << 1;
 static constexpr int STORAGE_FLAG_DE = 1;
 static constexpr int STORAGE_FLAG_CE = 2;
 
-
-int Get_Password_Type(const userid_t user_id, std::string& filename);
-bool Decrypt_DE();
-bool Decrypt_User(const userid_t user_id, const std::string& Password);
+namespace android {
+namespace keystore {
+    int Get_Password_Type(const userid_t user_id, std::string& filename);
+    bool Decrypt_DE();
+    bool Decrypt_User(const userid_t user_id, const std::string& Password);
+}
+}
 __END_DECLS

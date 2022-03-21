@@ -420,7 +420,9 @@ static bool load_all_de_keys() {
             LOG(ERROR) << "DE policy for user" << user_id << " changed";
             return false;
         }
-        LOG(DEBUG) << "Installed de key for user " << user_id;
+        LOG(INFO) << "Installed de key for user " << user_id;
+        std::string user_prop = "twrp.user." + std::to_string(user_id) + ".decrypt";
+        property_set(user_prop.c_str(), "0");
     }
     // fscrypt:TODO: go through all DE directories, ensure that all user dirs have the
     // correct policy set on them, and that no rogue ones exist.
@@ -429,6 +431,7 @@ static bool load_all_de_keys() {
 
 // Attempt to reinstall CE keys for users that we think are unlocked.
 static bool try_reload_ce_keys() {
+    LOG(INFO) << "try_reload_ce_keys";
     for (const auto& it : s_ce_policies) {
         if (!android::vold::reloadKeyFromSessionKeyring(DATA_MNT_POINT, it.second)) {
             LOG(ERROR) << "Failed to load CE key from session keyring for user " << it.first;
@@ -477,7 +480,7 @@ bool fscrypt_initialize_systemwide_keys() {
 }
 
 bool fscrypt_init_user0() {
-    LOG(DEBUG) << "fscrypt_init_user0";
+    LOG(INFO) << "fscrypt_init_user0";
     if (fscrypt_is_native()) {
         if (!prepare_dir(user_key_dir, 0700, AID_ROOT, AID_ROOT)) return false;
         if (!prepare_dir(user_key_dir + "/ce", 0700, AID_ROOT, AID_ROOT)) return false;
@@ -751,7 +754,7 @@ std::vector<int> fscrypt_get_unlocked_users() {
 
 // TODO: rename to 'install' for consistency, and take flags to know which keys to install
 bool fscrypt_unlock_user_key(userid_t user_id, int serial, const std::string& secret_hex) {
-    LOG(DEBUG) << "fscrypt_unlock_user_key " << user_id << " serial=" << serial;
+    LOG(INFO) << "fscrypt_unlock_user_key " << user_id << " serial=" << serial;
     if (fscrypt_is_native()) {
         if (s_ce_policies.count(user_id) != 0) {
             LOG(WARNING) << "Tried to unlock already-unlocked key for user " << user_id;
@@ -810,7 +813,7 @@ static bool prepare_subdirs(const std::string& action, const std::string& volume
 
 bool fscrypt_prepare_user_storage(const std::string& volume_uuid, userid_t user_id, int serial,
                                   int flags) {
-    LOG(DEBUG) << "fscrypt_prepare_user_storage for volume " << escape_empty(volume_uuid)
+    LOG(INFO) << "fscrypt_prepare_user_storage for volume " << escape_empty(volume_uuid)
                << ", user " << user_id << ", serial " << serial << ", flags " << flags;
 
     if (flags & android::os::IVold::STORAGE_FLAG_DE) {
@@ -853,7 +856,6 @@ bool fscrypt_prepare_user_storage(const std::string& volume_uuid, userid_t user_
             if (!EnsurePolicy(de_policy, user_de_path)) return false;
         }
     }
-
     if (flags & android::os::IVold::STORAGE_FLAG_CE) {
         // CE_n key
         auto system_ce_path = android::vold::BuildDataSystemCePath(user_id);
@@ -861,6 +863,7 @@ bool fscrypt_prepare_user_storage(const std::string& volume_uuid, userid_t user_
         auto vendor_ce_path = android::vold::BuildDataVendorCePath(user_id);
         auto media_ce_path = android::vold::BuildDataMediaCePath(volume_uuid, user_id);
         auto user_ce_path = android::vold::BuildDataUserCePath(volume_uuid, user_id);
+        LOG(INFO) << "fscrypt_prepare_user_storage";
 
         if (volume_uuid.empty()) {
             if (!prepare_dir(system_ce_path, 0770, AID_SYSTEM, AID_SYSTEM)) return false;
@@ -878,7 +881,6 @@ bool fscrypt_prepare_user_storage(const std::string& volume_uuid, userid_t user_
         }
 
         if (!prepare_dir(user_ce_path, 0771, AID_SYSTEM, AID_SYSTEM)) return false;
-
         if (fscrypt_is_native()) {
             EncryptionPolicy ce_policy;
             if (volume_uuid.empty()) {

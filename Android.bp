@@ -311,3 +311,27 @@ filegroup {
     ],
     path: "binder",
 }
+
+cc_binary {
+    name: "persistsql",
+    host_supported: true,
+    cflags: [
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable"
+    ],
+    include_dirs: [
+        "external/sqlite/dist/",
+        "system/vold"
+    ],
+    recovery_available: true,
+    srcs: [
+        "KeystoreInfo.cpp"
+    ],
+    shared_libs: [
+        "libsqlite"
+    ],
+    system_shared_libs: [
+        "libc", 
+        "libdl",
+        ],
+}
