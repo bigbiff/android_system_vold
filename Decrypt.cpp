@@ -216,7 +216,7 @@ extern "C" bool lookup_ref_tar(const uint8_t* policy_type, uint8_t* policy) {
 }
 
 extern "C" bool Decrypt_DE() {
-	printf("fscrypt::Decrypt_DE\n");
+	printf("Attempting to initialize DE keys\n");
 	if (!fscrypt_initialize_systemwide_keys()) { // this deals with the overarching device encryption
 		printf("fscrypt_initialize_systemwide_keys returned fail\n");
 		return false;
@@ -229,75 +229,38 @@ extern "C" bool Decrypt_DE() {
 }
 
 // Crappy functions for debugging, please ignore unless you need to debug
-void output_hex(const std::string& in) {
-	const char *buf = in.data();
-	char hex[in.size() * 2 + 1];
-	unsigned int index;
-	for (index = 0; index < in.size(); index++)
-		sprintf(&hex[2 * index], "%02X", buf[index]);
-	printf("%s", hex);
-}
+// void output_hex(const std::string& in) {
+// 	const char *buf = in.data();
+// 	char hex[in.size() * 2 + 1];
+// 	unsigned int index;
+// 	for (index = 0; index < in.size(); index++)
+// 		sprintf(&hex[2 * index], "%02X", buf[index]);
+// }
 
-void output_hex(const char* buf, const int size) {
-	char hex[size * 2 + 1];
-	int index;
-	for (index = 0; index < size; index++)
-		sprintf(&hex[2 * index], "%02X", buf[index]);
-	printf("%s", hex);
-}
+// void output_hex(const char* buf, const int size) {
+// 	char hex[size * 2 + 1];
+// 	int index;
+// 	for (index = 0; index < size; index++)
+// 		sprintf(&hex[2 * index], "%02X", buf[index]);
+// 	printf("%s", hex);
+// }
 
-void output_hex(const unsigned char* buf, const int size) {
-	char hex[size * 2 + 1];
-	int index;
-	for (index = 0; index < size; index++)
-		sprintf(&hex[2 * index], "%02X", buf[index]);
-	printf("%s", hex);
-}
+// void output_hex(const unsigned char* buf, const int size) {
+// 	char hex[size * 2 + 1];
+// 	int index;
+// 	for (index = 0; index < size; index++)
+// 		sprintf(&hex[2 * index], "%02X", buf[index]);
+// 	printf("%s", hex);
+// }
 
-void output_hex(std::vector<uint8_t>* vec) {
-	char hex[3];
-	unsigned int index;
-	for (index = 0; index < vec->size(); index++) {
-		sprintf(&hex[0], "%02X", vec->at(index));
-		printf("%s", hex);
-	}
-}
-
-/* An alternative is to use:
- * sqlite3 /data/system/locksettings.db "SELECT value FROM locksettings WHERE name='sp-handle' AND user=0;"
- * but we really don't want to include the 1.1MB libsqlite in TWRP. We scan the spblob folder for the
- * password data file (*.pwd) and get the handle from the filename instead. This is a replacement for
- * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/LockSettingsService.java#2017
- * We never use this data as an actual long. We always use it as a string. */
-bool Find_Handle(const std::string& spblob_path, std::string& handle_str) {
-	printf("Find_Handle\n");
-	DIR* dir = opendir(spblob_path.c_str());
-	if (!dir) {
-		printf("Error opening '%s'\n", spblob_path.c_str());
-		return false;
-	}
-
-	struct dirent* de = 0;
-
-	while ((de = readdir(dir)) != 0) {
-		if (strcmp(de->d_name, ".") == 0 || strcmp(de->d_name, "..") == 0)
-			continue;
-		size_t len = strlen(de->d_name);
-		if (len <= 4)
-			continue;
-		char* p = de->d_name;
-		p += len - 4;
-		if (strncmp(p, ".pwd", 4) == 0) {
-			handle_str = de->d_name;
-			handle_str = handle_str.substr(0, len - 4);
-			//*handle = strtoull(handle_str.c_str(), 0 , 16);
-			closedir(dir);
-			return true;
-		}
-	}
-	closedir(dir);
-	return false;
-}
+// void output_hex(std::vector<uint8_t>* vec) {
+// 	char hex[3];
+// 	unsigned int index;
+// 	for (index = 0; index < vec->size(); index++) {
+// 		sprintf(&hex[0], "%02X", vec->at(index));
+// 		printf("%s", hex);
+// 	}
+// }
 
 /* This is the structure of the data in the password data (*.pwd) file which the structure can be found
  * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#187 */
@@ -315,7 +278,6 @@ struct password_data_struct {
 /* C++ replacement for
  * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#764 */
 bool Get_Password_Data(const std::string& spblob_path, const std::string& handle_str, password_data_struct *pwd) {
-	printf("fscrypt::Get_Password_Data::1\n");
 	std::string pwd_file = spblob_path + handle_str + ".pwd";
 	std::string pwd_data;
 	if (!android::base::ReadFileToString(pwd_file, &pwd_data)) {
@@ -373,7 +335,6 @@ bool Get_Password_Data(const std::string& spblob_path, const std::string& handle
  * called here
  * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#1050 */
 bool Get_Password_Token(const password_data_struct *pwd, const std::string& Password, unsigned char* password_token) {
-	printf("fscrypt::Get_Password_Token\n");
 	if (!password_token) {
 		printf("password_token is null\n");
 		return false;
@@ -477,7 +438,7 @@ namespace keystore {
  * returning an empty string indicates an error */
 	std::string unwrapSyntheticPasswordBlob(const std::string& spblob_path, const std::string& handle_str, const userid_t user_id,
 		const void* application_id, const size_t application_id_size, uint32_t auth_token_len) {
-		printf("unwrapSyntheticPasswordBlob\n");
+		printf("Attempting to unwrap synthetic password blob\n");
 		std::string disk_decryption_secret_key = "";
 
 		android::ProcessState::self()->startThreadPool();
@@ -521,12 +482,11 @@ namespace keystore {
 			unsigned char* iv = (unsigned char*)byteptr; // The IV is the first 12 bytes of the spblob
 			::keystore::hidl_vec<uint8_t> iv_hidlvec;
 			iv_hidlvec.setToExternal((unsigned char*)byteptr, 12);
-			printf("iv: "); output_hex((const unsigned char*)iv, 12); printf("\n");
+			// printf("iv: "); output_hex((const unsigned char*)iv, 12); printf("\n");
 
 			KeystoreInfo keystore_info;
 			std::string handle = keystore_info.getHandle(user_id);
 			std::string keystore_alias = keystore_info.getAlias(handle);
-			printf("keystore_alias: %s\n", keystore_alias.c_str());
 			int32_t error_code;
 			unsigned char* cipher_text = (unsigned char*)byteptr + 12; // The cipher text comes immediately after the IV
 			std::string cipher_text_str(byteptr, byteptr + spblob_data.size() - 14);
@@ -568,7 +528,7 @@ namespace keystore {
 
 			begin_rc = encOperationResponse.iOperation->finish(cipher_text_hidlvec, {}, &optPlaintext);
 			if (!begin_rc.isOk()) {
-				printf("finish reponse failed.")
+				printf("finish reponse failed");
 				return disk_decryption_secret_key;
 			}
 
@@ -581,13 +541,13 @@ namespace keystore {
 			memcpy(keystore_result, &optPlaintext->front(), keystore_result_size);
 
 			const unsigned char* intermediate_iv = keystore_result;
-			printf("intermediate_iv: "); output_hex((const unsigned char*)intermediate_iv, 12); printf("\n");
+			// printf("intermediate_iv: "); output_hex((const unsigned char*)intermediate_iv, 12); printf("\n");
 			const unsigned char* intermediate_cipher_text = (const unsigned char*)keystore_result + 12; // The cipher text comes immediately after the IV
 			int cipher_size = keystore_result_size - 12;
 			// First we personalize as seen https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordCrypto.java#102
 			void* personalized_application_id = PersonalizedHashBinary(PERSONALISATION_APPLICATION_ID, (const char*)application_id, application_id_size);
 			if (!personalized_application_id) {
-				printf("Unable to obtain personalized_application_id\n")
+				printf("Unable to obtain personalized_application_id\n");
 				return disk_decryption_secret_key;
 			}
 			// printf("personalized application id: "); output_hex((unsigned char*)personalized_application_id, SHA512_DIGEST_LENGTH); printf("\n");
@@ -638,18 +598,16 @@ bool Get_Secdis(const std::string& spblob_path, const std::string& handle_str, s
 		printf("Failed to read '%s'\n", secdis_file.c_str());
 		return false;
 	}
-	output_hex(secdis_data.data(), secdis_data.size());printf("\n");
+	// output_hex(secdis_data.data(), secdis_data.size());printf("\n");
 	return true;
 }
 
 // // C++ replacement for https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#1033
 userid_t fakeUid(const userid_t uid) {
-	printf("fakeUid\n");
     return 100000 + uid;
 }
 
 bool Is_Weaver(const std::string& spblob_path, const std::string& handle_str) {
-	printf("Is_Weaver\n");
 	std::string weaver_file = spblob_path + handle_str + ".weaver";
 	struct stat st;
 	if (stat(weaver_file.c_str(), &st) == 0)
@@ -658,7 +616,6 @@ bool Is_Weaver(const std::string& spblob_path, const std::string& handle_str) {
 }
 
 bool Free_Return(bool retval, void* weaver_key, password_data_struct* pwd) {
-	printf("Free_Return\n");
 	if (weaver_key)
 		free(weaver_key);
 	if (pwd->salt)
@@ -671,7 +628,7 @@ bool Free_Return(bool retval, void* weaver_key, password_data_struct* pwd) {
 // /* Decrypt_User_Synth_Pass is the TWRP C++ equivalent to spBasedDoVerifyCredential
 //  * https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/LockSettingsService.java#1998 */
 bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password) {
-	printf("Decrypt_User_Synth_Pass\n");
+	printf("Attempting to decrypt user's synthetic password\n");
 	bool retval = false;
 	void* weaver_key = NULL;
 	password_data_struct pwd;
@@ -690,30 +647,24 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
 	sprintf(spblob_path_char, "/data/system_de/%d/spblob/", user_id);
 	std::string spblob_path = spblob_path_char;
 	long handle = 0;
-	std::string handle_str;
 	// Get the handle: https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/LockSettingsService.java#2017
-	if (!Find_Handle(spblob_path, handle_str)) {
-		printf("Error getting handle\n");
-		return Free_Return(retval, weaver_key, &pwd);
-	}
+	KeystoreInfo keystore_info;
+	std::string handle_str = keystore_info.getHandle(user_id);
 	// Now we begin driving unwrapPasswordBasedSyntheticPassword from: https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#758
 	// First we read the password data which contains scrypt parameters
-	printf("fscrypt::Get_Password_Data::2\n");
 	if (!Get_Password_Data(spblob_path, handle_str, &pwd)) {
 		printf("Failed to Get_Password_Data\n");
 		return Free_Return(retval, weaver_key, &pwd);
 	}
-	printf("fscrypt::Get_Password_Data::3\n");
-	printf("pwd N %i R %i P %i salt ", pwd.scryptN, pwd.scryptR, pwd.scryptP); output_hex((char*)pwd.salt, pwd.salt_len); printf("\n");
+	// printf("pwd N %i R %i P %i salt ", pwd.scryptN, pwd.scryptR, pwd.scryptP); output_hex((char*)pwd.salt, pwd.salt_len); printf("\n");
 	unsigned char password_token[PASSWORD_TOKEN_SIZE];
 	// printf("Password: '%s'\n", Password.c_str());
 	// The password token is the password scrypted with the parameters from the password data file
-	printf("fscrypt::GetPassword_Token\n");
 	if (!Get_Password_Token(&pwd, Password, &password_token[0])) {
 		printf("Failed to Get_Password_Token\n");
 		return Free_Return(retval, weaver_key, &pwd);
 	}
-	output_hex(&password_token[0], PASSWORD_TOKEN_SIZE);printf("\n");
+	// output_hex(&password_token[0], PASSWORD_TOKEN_SIZE);printf("\n");
 	if (Is_Weaver(spblob_path, handle_str)) {
 		printf("using weaver\n");
 		// BEGIN PIXEL 2 WEAVER
@@ -746,7 +697,7 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
 		} else {
 			printf("weaver key size is %u\n", weaver_key_size);
 		}
-		printf("weaver key: "); output_hex((unsigned char*)weaver_key, weaver_key_size); printf("\n");
+		// printf("weaver key: "); output_hex((unsigned char*)weaver_key, weaver_key_size); printf("\n");
 		// Send the slot from the .weaver file, the computed weaver key, and get the escrowed key data
 		std::vector<uint8_t> weaver_payload;
 		// TODO: we should return more information about the status including time delays before the next retry
@@ -754,18 +705,18 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
 			printf("failed to weaver verify\n");
 			return Free_Return(retval, weaver_key, &pwd);
 		}
-		printf("weaver payload: "); output_hex(&weaver_payload); printf("\n");
+		// printf("weaver payload: "); output_hex(&weaver_payload); printf("\n");
 		// Done with weaverVerify
 		// Now we will compute the application ID
 		// https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#964
 		// Called from https://android.googlesource.com/platform/frameworks/base/+/android-8.0.0_r23/services/core/java/com/android/server/locksettings/SyntheticPasswordManager.java#780
 		// The escrowed weaver key data is prefixed with "weaver-pwd" padded to 128 with nulls with the weaver payload appended then SHA512
 		void* weaver_secret = PersonalizedHashBinary(PERSONALISATION_WEAVER_PASSWORD, (const char*)weaver_payload.data(), weaver_payload.size());
-		printf("weaver secret: "); output_hex((unsigned char*)weaver_secret, SHA512_DIGEST_LENGTH); printf("\n");
+		// printf("weaver secret: "); output_hex((unsigned char*)weaver_secret, SHA512_DIGEST_LENGTH); printf("\n");
 		// The application ID is the password token and weaver secret appended to each other
 		memcpy((void*)&application_id[0], (void*)&password_token[0], PASSWORD_TOKEN_SIZE);
 		memcpy((void*)&application_id[PASSWORD_TOKEN_SIZE], weaver_secret, SHA512_DIGEST_LENGTH);
-		printf("application ID: "); output_hex((unsigned char*)application_id, PASSWORD_TOKEN_SIZE + SHA512_DIGEST_LENGTH); printf("\n");
+		// printf("application ID: "); output_hex((unsigned char*)application_id, PASSWORD_TOKEN_SIZE + SHA512_DIGEST_LENGTH); printf("\n");
 		// END PIXEL 2 WEAVER
 	} else {
 		printf("using secdis\n");
@@ -848,13 +799,13 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
 		return Free_Return(retval, weaver_key, &pwd);
 	}
 
-	printf("decrypt::fscrypt_unlock_user_key\n");
+	printf("Attempting to unlock user storage\n");
 	if (!fscrypt_unlock_user_key(user_id, token, secret)) {
 		printf("fscrypt_unlock_user_key returned fail\n");
 		return Free_Return(retval, weaver_key, &pwd);
 	}
 
-	printf("decrypt::fscrypt_prepare_user_storage::1\n");
+	printf("Attempting to prepare user storage\n");
 
 	if (!fscrypt_prepare_user_storage("", user_id, 0, flags)) {
 		printf("failed to fscrypt_prepare_user_storage\n");
@@ -866,26 +817,19 @@ bool Decrypt_User_Synth_Pass(const userid_t user_id, const std::string& Password
 }
 
 extern "C" int Get_Password_Type(const userid_t user_id, std::string& filename) {
-	printf("Get_Password_Type\n");
 	struct stat st;
 	char spblob_path_char[PATH_MAX];
 	sprintf(spblob_path_char, "/data/system_de/%d/spblob/", user_id);
 	if (stat(spblob_path_char, &st) == 0) {
-		printf("Using synthetic password method\n");
 		std::string spblob_path = spblob_path_char;
-		std::string handle_str;
-		if (!Find_Handle(spblob_path, handle_str)) {
-			printf("Error getting handle\n");
-			return 0;
-		}
+		KeystoreInfo keystore_info;
+		std::string handle_str = keystore_info.getHandle(user_id);
 		printf("Handle is '%s'\n", handle_str.c_str());
 		password_data_struct pwd;
-		printf("fscrypt::Get_Password_Type::1\n");
 		if (!Get_Password_Data(spblob_path, handle_str, &pwd)) {
 			printf("Failed to Get_Password_Data\n");
 			return 0;
 		}
-		printf("fscrypt::Get_Password_Type::2\n");
 		// In Android type 1 is pattern
 		// In Android <11 type 2 is PIN or password
 		// In Android 11+ type 3 is PIN and type 4 is password
@@ -927,7 +871,7 @@ extern "C" int Get_Password_Type(const userid_t user_id, std::string& filename) 
 }
 
 extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password) {
-	printf("fscrypt::Decrypt_User\n");
+	printf("Attempting to decrypt user\n");
     uint8_t *auth_token;
     uint32_t auth_token_len;
     int ret;
@@ -939,13 +883,10 @@ extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password
 	}
     std::string filename;
     bool Default_Password = (Password == "!");
-	printf("Default_Password: %d\n", Default_Password);
-	printf("fscrypt::Decrypt_User::Get_Password_Type::1\n");
     if (Get_Password_Type(user_id, filename) == 0 && !Default_Password) {
 		printf("Unknown password type\n");
 		return false;
 	}
-	printf("fscrypt::Decrypt_User::Get_Password_Type::2\n");
 
 	int flags = android::os::IVold::STORAGE_FLAG_CE;
 
@@ -954,7 +895,7 @@ extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password
 			printf("unlock_user_key returned fail\n");
 			return false;
 		}
-		printf("decrypt::fscrypt_prepare_user_storage::2\n");
+		printf("Attempting to prepare user storage\n");
 		if (!fscrypt_prepare_user_storage("", user_id, 0, flags)) {
 			printf("failed to fscrypt_prepare_user_storage\n");
 			return false;
@@ -962,7 +903,6 @@ extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password
 		printf("User %i Decrypted Successfully!\n", user_id);
 		return true;
 	}
-	printf("fscrypt::checking for spblob\n");
 	if (stat("/data/system_de/0/spblob", &st) == 0) {
 		printf("Using synthetic password method\n");
 		return Decrypt_User_Synth_Pass(user_id, Password);
@@ -979,22 +919,15 @@ extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password
 	}
     bool should_reenroll;
 	bool request_reenroll = false;
-	printf("fscrypt::gatekeeper::1\n");
 	android::sp<android::hardware::gatekeeper::V1_0::IGatekeeper> gk_device;
-	printf("fscrypt::gatekeeper::2\n");
 	gk_device = ::android::hardware::gatekeeper::V1_0::IGatekeeper::getService();
-	printf("fscrypt::gatekeeper::3\n");
 	if (gk_device == nullptr)
 		return false;
 	android::hardware::hidl_vec<uint8_t> curPwdHandle;
-	printf("fscrypt::gatekeeper::4\n");
 	curPwdHandle.setToExternal(const_cast<uint8_t *>((const uint8_t *)handle.c_str()), st.st_size);
-	printf("fscrypt::gatekeeper::5\n");
 	android::hardware::hidl_vec<uint8_t> enteredPwd;
-	printf("fscrypt::gatekeeper::6\n");
 	enteredPwd.setToExternal(const_cast<uint8_t *>((const uint8_t *)Password.c_str()), Password.size());
 
-	printf("fscrypt::gatekeeper::7\n");
 	android::hardware::Return<void> hwRet =
 		gk_device->verify(user_id, 0 /* challange */,
 						  curPwdHandle,
@@ -1030,7 +963,7 @@ extern "C" bool Decrypt_User(const userid_t user_id, const std::string& Password
 		return false;
 	}
 
-	printf("decrypt::fscrypt_prepare_user_storage::3\n");
+	printf("Attempting to prepare user storage\n");
 	if (!fscrypt_prepare_user_storage("", user_id, 0, flags)) {
 		printf("failed to fscrypt_prepare_user_storage\n");
 		return false;
