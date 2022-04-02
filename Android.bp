@@ -336,3 +336,23 @@ cc_library {
         "libdl",
         ],
 }
+
+cc_binary {
+    name: "fscryptpolicyget",
+    defaults: [
+        "vold_default_flags",
+        "vold_default_libs"
+    ],
+
+    srcs: ["fscryptpolicyget.cpp"],
+    static_libs: ["libvold"],
+
+    shared_libs: [
+        "android.hardware.health.storage@1.0",
+        "android.hardware.health.storage-V1-ndk_platform",
+        "android.system.keystore2-V1-ndk_platform",
+        "android.security.maintenance-ndk_platform",
+        "libbinder_ndk",
+        "libkeymint_support",
+    ]
+}
