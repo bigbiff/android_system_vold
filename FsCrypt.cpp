@@ -464,6 +464,7 @@ bool fscrypt_initialize_systemwide_keys() {
     if (!android::vold::writeStringToFile(options_string, options_filename)) return false;
 
     std::string ref_filename = std::string(DATA_MNT_POINT) + fscrypt_key_ref;
+    de_key_raw_ref = device_policy.key_raw_ref;
     if (!android::vold::writeStringToFile(device_policy.key_raw_ref, ref_filename)) return false;
     LOG(INFO) << "Wrote system DE key reference to:" << ref_filename;
 
@@ -694,7 +695,6 @@ static bool fscrypt_rewrap_user_key(userid_t user_id, int serial,
     auto const directory_path = get_ce_key_directory_path(user_id);
     KeyBuffer ce_key;
     std::string ce_key_current_path = get_ce_key_current_path(directory_path);
-    LOG(INFO) <<"fscrypt::fscrypt_rewrap_user_key::retrieveKey";
     if (retrieveKey(ce_key_current_path, retrieve_auth, &ce_key)) {
         LOG(INFO) << "Successfully retrieved key";
         // TODO(147732812): Remove this once Locksettingservice is fixed.

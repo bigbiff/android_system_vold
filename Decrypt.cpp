@@ -180,8 +180,6 @@ extern "C" bool lookup_ref_tar(const uint8_t* policy_type, uint8_t* policy) {
 	bytes_to_hex(policy_type, FSCRYPT_KEY_IDENTIFIER_SIZE, policy_hex);
 #endif
 
-	userid_t user_id = std::stoi(policy_type_string.substr(3, 4).c_str());
-
 #ifdef USE_FSCRYPT_POLICY_V1
 	if (policy_type_string.substr(0,1) != FSCRYPT_V1) {
 #else
@@ -199,11 +197,13 @@ extern "C" bool lookup_ref_tar(const uint8_t* policy_type, uint8_t* policy) {
     std::string raw_ref;
 
 	if (policy_type_string.substr(1, 1) == USER_DE_KEY) {
+		userid_t user_id = std::stoi(policy_type_string.substr(3, 4).c_str());
         if (lookup_key_ref(s_de_policies, user_id, &raw_ref)) {
             memcpy(policy, raw_ref.data(), raw_ref.size());
         } else
             return false;
     } else if (policy_type_string.substr(1, 1) == USER_CE_KEY) {
+		userid_t user_id = std::stoi(policy_type_string.substr(3, 4).c_str());
         if (lookup_key_ref(s_ce_policies, user_id, &raw_ref)) {
             memcpy(policy, raw_ref.data(), raw_ref.size());
         } else
